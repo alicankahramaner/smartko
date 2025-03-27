@@ -1,0 +1,92 @@
+body {
+
+    --radius: 4vmin;
+    --red: #ff6464;
+    --green: #64c864;
+    --blue: #6464ff;
+}
+.key {
+    width: 40px;
+    height: 40px;
+    padding: 0.6vmin 0.6vmin 0.9vmin;
+    top: 0.5vmin;
+    position: relative;
+    overflow: hidden;
+    border-radius: calc(var(--radius) * 0.5);
+    transform: translate3d(0, 0, 0);
+    animation: shadow 5s -0.5s linear infinite;
+    animation: shadow 0.3s calc(-.3) linear infinite;
+}
+@keyframes shadow {
+    0% {
+        box-shadow: 0 0 5vmin -2vmin var(--red);
+   }
+    33% {
+        box-shadow: 0 0 5vmin -2vmin var(--blue);
+   }
+    66% {
+        box-shadow: 0 0 5vmin -2vmin var(--green);
+   }
+    100% {
+        box-shadow: 0 0 5vmin -2vmin var(--red);
+   }
+}
+.key:before {
+    content: '';
+    width: 400vmin;
+    height: 400vmin;
+    position: absolute;
+    top: 150%;
+    left: 150%;
+    transform: translate(-50%, -50%);
+    background: conic-gradient(var(--red), var(--green), var(--blue), var(--red));
+    animation: spin 5s linear infinite;
+}
+@keyframes spin {
+    from {
+        transform: translate(-50%, -50%) rotate(0deg);
+   }
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+   }
+}
+.key .key-cotnent {
+    width: 100%;
+    height: 100%;
+    background-color: #111;
+    position: relative;
+    border-radius: calc(var(--radius) * 0.4);
+    font-size: 3vmin;
+    top: -0.3vmin;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    z-index: 1;
+    /* cursor: alias; */
+    user-select: none;
+    box-shadow: 0 0.6vmin rgba(0, 0, 0, 0.6);
+    transition: top 0.1s ease-in-out, box-shadow 0.1s ease-in-out, background-color 0.1s ease-in-out;
+}
+.key .key-cotnent:active {
+    /* top: 0vmin; */
+    /* box-shadow: 0 0.3vmin rgba(0, 0, 0, 0.6); */
+    /* background-color: rgba(17, 17, 17, 0.9); */
+}
+@keyframes color {
+    0% {
+        color: var(--red);
+   }
+    33% {
+        color: var(--blue);
+   }
+    66% {
+        color: var(--green);
+   }
+    100% {
+        color: var(--red);
+   }
+}
+.key.disabled {
+    filter: grayscale(1);
+}

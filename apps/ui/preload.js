@@ -1,3 +1,13 @@
+const { contextBridge, ipcRenderer, BrowserWindow } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  sendMessage: (message) => ipcRenderer.send('toMain', message),
+  onMessage: (callback) => ipcRenderer.on('fromMain', (event, args) => {
+    callback(args)
+  }),
+});
+
+
 window.addEventListener('DOMContentLoaded', () => {
   const replaceText = (selector, text) => {
     const element = document.getElementById(selector)
@@ -8,3 +18,4 @@ window.addEventListener('DOMContentLoaded', () => {
     replaceText(`${type}-version`, process.versions[type])
   }
 })
+

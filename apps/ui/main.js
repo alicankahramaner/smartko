@@ -1,49 +1,124 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, Notification } = require('electron')
 const path = require('node:path')
-const { ActiveWindow } = require('@paymoapp/active-window');
+const { SerialPort } = require('serialport')
 
-ipcMain.emit()
 
-ActiveWindow.initialize();
+const notificationSend = (message) => {
+    new Notification({
+        title: "SmartKo",
+        body: message
+    }).show()
+}
+var device = null;
+var failConnectCount = 0;
+async function connectDevice() {
+    if (failConnectCount === 5) {
+        return;
+    }
+    const devices = await SerialPort.list();
+    const smartKo = devices.find(e => e.manufacturer === 'Smart KO');
 
-if (!ActiveWindow.requestPermissions()) {
-    console.log('Error: You need to grant screen recording permission in System Preferences > Security & Privacy > Privacy > Screen Recording');
-    process.exit(0);
+    if (!smartKo) {
+        new Notification({
+            title: 'Smart KO',
+            body: "Cihaz bulunamadı, 5 saniye sonra tekrar arama yapılacak."
+        }).show();
+        setTimeout(() => connectDevice(), 5000);
+        failConnectCount += 1;
+        return;
+    }
+
+    device = new SerialPort({
+        path: smartKo.path,
+        baudRate: 9600,
+        autoOpen: true,
+
+    }, (err) => {
+
+        new Notification({
+            title: 'Smart KO',
+            body: err ? "Cihaz bağlantısı sırasında hata oluştu, 5 saniye sonra tekrar arama yapılacak. " : "Cihaz bağlantısı sağlandı"
+        }).show();
+        if (err) {
+            failConnectCount += 1;
+            setTimeout(() => connectDevice(), 5000);
+        }
+    })
+
+    if (device === null) return;
+
+    ipcMain.on('add', async () => {
+        const ports = await SerialPort.list();
+        console.log(ports);
+    })
+
+    ipcMain.on('toMain', (event, args) => {
+        switch (args.type) {
+            case 'update':
+                console.log(args.data);
+                device.write(Buffer.from(args.data))
+                break;
+            case 'list':
+                device.write(Buffer.from('LIST'))
+                break;
+            case 'clear':
+                device.write(Buffer.from('CLEAR'))
+                break;
+            default:
+                break;
+        }
+
+        // // UI'ye mesaj gönder
+        // event.reply('fromMain', `Merhaba, ${args}! Bu mesaj Main process’ten geldi.`);
+    });
+
+    device.on('data', function (data) {
+        const val = data.toString();
+        console.log(val);
+
+        if (val.includes('MacroCleared')) {
+            notificationSend("Cihaz sıfırlandı.")
+            return;
+        }
+
+        if (val.includes('UPDATED')) {
+            notificationSend("Pedal profili güncellendi.");
+            return;
+        }
+
+        if (val.includes('UNDEFINED')) {
+            notificationSend("Bilinmeyen bir hata oluştu: L52");
+            return;
+        }
+
+        if (val.includes('MacroListEmpty')) {
+            notificationSend("Pedalda makro yok. Bir profil seçin otomatik yüklenecektir.")
+            return
+        }
+    })
 }
 
-
-ActiveWindow.subscribe((e) => {
-    console.log(e.title)
-})
-function createWindow() {
+async function createWindow() {
     // Create the browser window.
     const mainWindow = new BrowserWindow({
         width: 480,
         height: 784,
         resizable: process.env === 'production' ? false : true,
         webPreferences: {
-            nodeIntegration: true, // to allow require
+            contextIsolation: process.env === 'development' ? true : false, // Geliştirme için kapalı (production'da contextIsolation: true kullanmayı düşünün)
+            enableRemoteModule: true,
             contextIsolation: true, // allow use with Electron 12+
             preload: path.join(__dirname, 'preload.js'),
         }
     })
     mainWindow.webContents.openDevTools()
-    const {webContents} = mainWindow;
+    const { webContents } = mainWindow;
 
-    webContents.session.setPermissionRequestHandler(e=>{
+    webContents.session.setPermissionRequestHandler(e => {
         return true;
     })
-    mainWindow.webContents.session.on('select-serial-port', (event, deviceList, callback) => {
-        console.log('asdasd')
-        event.preventDefault()
-        if (deviceList && deviceList.length > 0) {
-            callback(deviceList[0].deviceId)
-        }
-    })
 
-    // and load the index.html of the app.
-
-    switch (process.env) {
+    switch ("development") {
         case "development":
             mainWindow.loadURL('http://localhost:5173/');
             break;
@@ -53,21 +128,13 @@ function createWindow() {
         default:
             break;
     }
-    mainWindow.loadFile('index.html')
-
-    mainWindow.loadURL("http://localhost:5173/")
-
-
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
+
 app.whenReady().then(() => {
     createWindow()
+    connectDevice()
     app.on('activate', function () {
-        // On macOS it's common to re-create a window in the app when the
-        // dock icon is clicked and there are no other windows open.
         if (BrowserWindow.getAllWindows().length === 0) createWindow()
     })
 
